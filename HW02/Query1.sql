@@ -70,11 +70,11 @@ Offset 1000 Rows FETCH FIRST 100 ROWS ONLY;
 Use [WideWorldImporters];
 Select DeliveryMethodName, ExpectedDeliveryDate, SupplierName, FullName as ContactPerson   
 FROM   [Application].[People]
-RIGHT JOIN [Purchasing].[PurchaseOrders] ON [Application].[People].[PersonID] =  [Purchasing].[PurchaseOrders].[ContactPersonID]
-LEFT JOIN [Purchasing].[Suppliers] ON [Purchasing].[PurchaseOrders].[SupplierID] = [Purchasing].[Suppliers].[SupplierID]
-LEFT JOIN [Application].[DeliveryMethods] ON [Purchasing].[PurchaseOrders].[DeliveryMethodID]=[Application].[DeliveryMethods].[DeliveryMethodID]
+ JOIN [Purchasing].[PurchaseOrders] ON [Application].[People].[PersonID] =  [Purchasing].[PurchaseOrders].[ContactPersonID]
+ JOIN [Purchasing].[Suppliers] ON [Purchasing].[PurchaseOrders].[SupplierID] = [Purchasing].[Suppliers].[SupplierID]
+ JOIN [Application].[DeliveryMethods] ON [Purchasing].[PurchaseOrders].[DeliveryMethodID]=[Application].[DeliveryMethods].[DeliveryMethodID]
 WHERE Datepart(month,ExpectedDeliveryDate) = 01 AND Datepart(year,ExpectedDeliveryDate) = 2013 
-AND (DeliveryMethodName LIKE 'Air Freight' OR DeliveryMethodName LIKE 'Refrigerated Air Freight') AND IsOrderFinalized = 1;
+      AND (DeliveryMethodName='Air Freight' OR DeliveryMethodName='Refrigerated Air Freight') AND IsOrderFinalized = 1;
 /*
 5. Десять последних продаж (по дате продажи - InvoiceDate) с именем клиента (клиент - CustomerID) и именем сотрудника,
 который оформил заказ (SalespersonPerson).
@@ -84,8 +84,8 @@ AND (DeliveryMethodName LIKE 'Air Freight' OR DeliveryMethodName LIKE 'Refrigera
 */
 Use [WideWorldImporters];
 Select TOP 10 InvoiceID ,InvoiceDate,CustomerName,FullName From [Application].[People]
-RIGHT JOIN [Sales].[Invoices] ON [Application].[People].[PersonID] = [Sales].[Invoices].[ContactPersonID]
-LEFT JOIN [Sales].[Customers] ON [Sales].[Invoices].CustomerID = [Sales].[Customers].CustomerID
+ JOIN [Sales].[Invoices] ON [Application].[People].[PersonID] = [Sales].[Invoices].[ContactPersonID]
+ JOIN [Sales].[Customers] ON [Sales].[Invoices].CustomerID = [Sales].[Customers].CustomerID
 Order by InvoiceDate desc
 /*
 6. Все ид и имена клиентов (клиент - CustomerID) и их контактные телефоны (PhoneNumber),
