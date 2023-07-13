@@ -1,11 +1,11 @@
 /*
-1. РЎРґРµР»Р°С‚СЊ СЂР°СЃС‡РµС‚ СЃСѓРјРјС‹ РїСЂРѕРґР°Р¶ РЅР°СЂР°СЃС‚Р°СЋС‰РёРј РёС‚РѕРіРѕРј РїРѕ РјРµСЃСЏС†Р°Рј СЃ 2015 РіРѕРґР° 
-(РІ СЂР°РјРєР°С… РѕРґРЅРѕРіРѕ РјРµСЃСЏС†Р° РѕРЅ Р±СѓРґРµС‚ РѕРґРёРЅР°РєРѕРІС‹Р№, РЅР°СЂР°СЃС‚Р°С‚СЊ Р±СѓРґРµС‚ РІ С‚РµС‡РµРЅРёРµ РІСЂРµРјРµРЅРё РІС‹Р±РѕСЂРєРё).
-Р’С‹РІРµРґРёС‚Рµ: id РїСЂРѕРґР°Р¶Рё, РЅР°Р·РІР°РЅРёРµ РєР»РёРµРЅС‚Р°, РґР°С‚Сѓ РїСЂРѕРґР°Р¶Рё, СЃСѓРјРјСѓ РїСЂРѕРґР°Р¶Рё, СЃСѓРјРјСѓ РЅР°СЂР°СЃС‚Р°СЋС‰РёРј РёС‚РѕРіРѕРј
+1. Сделать расчет суммы продаж нарастающим итогом по месяцам с 2015 года 
+(в рамках одного месяца он будет одинаковый, нарастать будет в течение времени выборки).
+Выведите: id продажи, название клиента, дату продажи, сумму продажи, сумму нарастающим итогом
 
-РџСЂРёРјРµСЂ:
+Пример:
 -------------+----------------------------
-Р”Р°С‚Р° РїСЂРѕРґР°Р¶Рё | РќР°СЂР°СЃС‚Р°СЋС‰РёР№ РёС‚РѕРі РїРѕ РјРµСЃСЏС†Сѓ
+Дата продажи | Нарастающий итог по месяцу
 -------------+----------------------------
  2015-01-29   | 4801725.31
  2015-01-30	 | 4801725.31
@@ -13,17 +13,42 @@
  2015-02-01	 | 9626342.98
  2015-02-02	 | 9626342.98
  2015-02-03	 | 9626342.98
-РџСЂРѕРґР°Р¶Рё РјРѕР¶РЅРѕ РІР·СЏС‚СЊ РёР· С‚Р°Р±Р»РёС†С‹ Invoices.
-РќР°СЂР°СЃС‚Р°СЋС‰РёР№ РёС‚РѕРі РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ Р±РµР· РѕРєРѕРЅРЅРѕР№ С„СѓРЅРєС†РёРё.
-*/--????????????????????????????
-РќРµ РјРѕРіСѓ СЃРїСЂР°РІРёС‚СЊСЃСЏ СЃ СЌС‚РѕР№ Р·Р°РґР°С‡РµР№. РќСѓР¶РЅР° РІР°С€Р° РїРѕРјРѕС‰СЊ!!!!
-/*
-2. РЎРґРµР»Р°Р№С‚Рµ СЂР°СЃС‡РµС‚ СЃСѓРјРјС‹ РЅР°СЂР°СЃС‚Р°СЋС‰РёРј РёС‚РѕРіРѕРј РІ РїСЂРµРґС‹РґСѓС‰РµРј Р·Р°РїСЂРѕСЃРµ СЃ РїРѕРјРѕС‰СЊСЋ РѕРєРѕРЅРЅРѕР№ С„СѓРЅРєС†РёРё.
-   РЎСЂР°РІРЅРёС‚Рµ РїСЂРѕРёР·РІРѕРґРёС‚РµР»СЊРЅРѕСЃС‚СЊ Р·Р°РїСЂРѕСЃРѕРІ 1 Рё 2 СЃ РїРѕРјРѕС‰СЊСЋ set statistics time, io on
+Продажи можно взять из таблицы Invoices.
+Нарастающий итог должен быть без оконной функции.
 */
 USE WideWorldImporters
 SET STATISTICS IO, TIME ON
-Select Distinct(SI.InvoiceID),CustomerName, InvoiceDate,
+;With cte1 (InvoiceID,CustomerName,InvoiceDate,DayTotal) AS 
+(
+	Select SI.InvoiceID,CustomerName, InvoiceDate,SUM(SIL.Quantity*SIL.UnitPrice)as DayTotal
+	From Sales.Customers as SC
+	JOIN Sales.Invoices as SI  ON SC.CustomerID = SI.CustomerID
+	JOIN Sales.InvoiceLines as SIL ON SI.InvoiceID = SIL.InvoiceID
+	WHERE YEAR (InvoiceDate)>='2015'
+	GROUP BY SI.InvoiceID,CustomerName, InvoiceDate
+)
+, cte2 (M,MonthSum) AS
+(	Select  Month(cte1.InvoiceDate) as M, SUM(DayTotal) as MonthSum
+	From cte1
+	Group By Month(cte1.InvoiceDate)
+)
+, cte3 (M,MonthSum,MonthTotal) AS
+(
+	Select T1.M, T1.MonthSum, SUM(T2.MonthSum)  as MonthTotal
+	From cte2 as T1
+	JOIN cte2 as T2 ON T2.M <= T1.M
+	Group by T1.M, T1.MonthSum
+)
+Select cte1.InvoiceID,cte1.CustomerName,cte1.InvoiceDate,cte1.DayTotal,
+cte3.MonthTotal
+From cte1 
+Left join cte3 ON Month(cte1.InvoiceDate) = cte3.M
+order by cte1.InvoiceDate 
+/*
+2. Сделайте расчет суммы нарастающим итогом в предыдущем запросе с помощью оконной функции.
+   Сравните производительность запросов 1 и 2 с помощью set statistics time, io on
+*/
+Select Distinct SI.InvoiceID,CustomerName, InvoiceDate,
 Sum(Quantity*UnitPrice) OVER( Partition by SI.InvoiceID) AS DayTotal,
 Sum(Quantity*UnitPrice) OVER( ORDER BY Year(InvoiceDate),Month(InvoiceDate)RANGE BETWEEN unbounded preceding and current row) AS MonthTotal
 From Sales.Customers as SC
@@ -32,8 +57,8 @@ From Sales.Customers as SC
 WHERE YEAR (InvoiceDate)>='2015'
 ORDER BY InvoiceDate 
 /*
-3. Р’С‹РІРµСЃС‚Рё СЃРїРёСЃРѕРє 2С… СЃР°РјС‹С… РїРѕРїСѓР»СЏСЂРЅС‹С… РїСЂРѕРґСѓРєС‚РѕРІ (РїРѕ РєРѕР»РёС‡РµСЃС‚РІСѓ РїСЂРѕРґР°РЅРЅС‹С…) 
-РІ РєР°Р¶РґРѕРј РјРµСЃСЏС†Рµ Р·Р° 2016 РіРѕРґ (РїРѕ 2 СЃР°РјС‹С… РїРѕРїСѓР»СЏСЂРЅС‹С… РїСЂРѕРґСѓРєС‚Р° РІ РєР°Р¶РґРѕРј РјРµСЃСЏС†Рµ).
+3. Вывести список 2х самых популярных продуктов (по количеству проданных) 
+в каждом месяце за 2016 год (по 2 самых популярных продукта в каждом месяце).
 */
 ;WITH CTE1 (Month, Description,SumQ) AS 
 (Select	distinct Month(InvoiceDate) as Month, Description ,
@@ -53,17 +78,17 @@ From CTE2
 Where CTE2.Rn<=2 
 Order by  Month, SumQ desc
 /*
-4. Р¤СѓРЅРєС†РёРё РѕРґРЅРёРј Р·Р°РїСЂРѕСЃРѕРј
-РџРѕСЃС‡РёС‚Р°Р№С‚Рµ РїРѕ С‚Р°Р±Р»РёС†Рµ С‚РѕРІР°СЂРѕРІ (РІ РІС‹РІРѕРґ С‚Р°РєР¶Рµ РґРѕР»Р¶РµРЅ РїРѕРїР°СЃС‚СЊ РёРґ С‚РѕРІР°СЂР°, РЅР°Р·РІР°РЅРёРµ, Р±СЂСЌРЅРґ Рё С†РµРЅР°):
-* РїСЂРѕРЅСѓРјРµСЂСѓР№С‚Рµ Р·Р°РїРёСЃРё РїРѕ РЅР°Р·РІР°РЅРёСЋ С‚РѕРІР°СЂР°, С‚Р°Рє С‡С‚РѕР±С‹ РїСЂРё РёР·РјРµРЅРµРЅРёРё Р±СѓРєРІС‹ Р°Р»С„Р°РІРёС‚Р° РЅСѓРјРµСЂР°С†РёСЏ РЅР°С‡РёРЅР°Р»Р°СЃСЊ Р·Р°РЅРѕРІРѕ
-* РїРѕСЃС‡РёС‚Р°Р№С‚Рµ РѕР±С‰РµРµ РєРѕР»РёС‡РµСЃС‚РІРѕ С‚РѕРІР°СЂРѕРІ Рё РІС‹РІРµРґРµС‚Рµ РїРѕР»РµРј РІ СЌС‚РѕРј Р¶Рµ Р·Р°РїСЂРѕСЃРµ
-* РїРѕСЃС‡РёС‚Р°Р№С‚Рµ РѕР±С‰РµРµ РєРѕР»РёС‡РµСЃС‚РІРѕ С‚РѕРІР°СЂРѕРІ РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ РїРµСЂРІРѕР№ Р±СѓРєРІС‹ РЅР°Р·РІР°РЅРёСЏ С‚РѕРІР°СЂР°
-* РѕС‚РѕР±СЂР°Р·РёС‚Рµ СЃР»РµРґСѓСЋС‰РёР№ id С‚РѕРІР°СЂР° РёСЃС…РѕРґСЏ РёР· С‚РѕРіРѕ, С‡С‚Рѕ РїРѕСЂСЏРґРѕРє РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ С‚РѕРІР°СЂРѕРІ РїРѕ РёРјРµРЅРё 
-* РїСЂРµРґС‹РґСѓС‰РёР№ РёРґ С‚РѕРІР°СЂР° СЃ С‚РµРј Р¶Рµ РїРѕСЂСЏРґРєРѕРј РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ (РїРѕ РёРјРµРЅРё)
-* РЅР°Р·РІР°РЅРёСЏ С‚РѕРІР°СЂР° 2 СЃС‚СЂРѕРєРё РЅР°Р·Р°Рґ, РІ СЃР»СѓС‡Р°Рµ РµСЃР»Рё РїСЂРµРґС‹РґСѓС‰РµР№ СЃС‚СЂРѕРєРё РЅРµС‚ РЅСѓР¶РЅРѕ РІС‹РІРµСЃС‚Рё "No items"
-* СЃС„РѕСЂРјРёСЂСѓР№С‚Рµ 30 РіСЂСѓРїРї С‚РѕРІР°СЂРѕРІ РїРѕ РїРѕР»СЋ РІРµСЃ С‚РѕРІР°СЂР° РЅР° 1 С€С‚ 
+4. Функции одним запросом
+Посчитайте по таблице товаров (в вывод также должен попасть ид товара, название, брэнд и цена):
+* пронумеруйте записи по названию товара, так чтобы при изменении буквы алфавита нумерация начиналась заново
+* посчитайте общее количество товаров и выведете полем в этом же запросе
+* посчитайте общее количество товаров в зависимости от первой буквы названия товара
+* отобразите следующий id товара исходя из того, что порядок отображения товаров по имени 
+* предыдущий ид товара с тем же порядком отображения (по имени)
+* названия товара 2 строки назад, в случае если предыдущей строки нет нужно вывести "No items"
+* сформируйте 30 групп товаров по полю вес товара на 1 шт 
 
-Р”Р»СЏ СЌС‚РѕР№ Р·Р°РґР°С‡Рё РќР• РЅСѓР¶РЅРѕ РїРёСЃР°С‚СЊ Р°РЅР°Р»РѕРі Р±РµР· Р°РЅР°Р»РёС‚РёС‡РµСЃРєРёС… С„СѓРЅРєС†РёР№.
+Для этой задачи НЕ нужно писать аналог без аналитических функций.
 */
 Select StockItemID, StockItemName, Brand, UnitPrice,
 ROW_NUMBER() OVER (Partition by Left(StockItemName,1) ORDER BY StockItemName ) AS Rn,
@@ -76,8 +101,8 @@ NTILE(30) OVER ( ORDER BY TypicalWeightPerUnit) AS GroupNumber
 FROM Warehouse.StockItems as T1
 Order by StockItemName asc
 /*
-5. РџРѕ РєР°Р¶РґРѕРјСѓ СЃРѕС‚СЂСѓРґРЅРёРєСѓ РІС‹РІРµРґРёС‚Рµ РїРѕСЃР»РµРґРЅРµРіРѕ РєР»РёРµРЅС‚Р°, РєРѕС‚РѕСЂРѕРјСѓ СЃРѕС‚СЂСѓРґРЅРёРє С‡С‚Рѕ-С‚Рѕ РїСЂРѕРґР°Р».
-   Р’ СЂРµР·СѓР»СЊС‚Р°С‚Р°С… РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РёРґ Рё С„Р°РјРёР»РёСЏ СЃРѕС‚СЂСѓРґРЅРёРєР°, РёРґ Рё РЅР°Р·РІР°РЅРёРµ РєР»РёРµРЅС‚Р°, РґР°С‚Р° РїСЂРѕРґР°Р¶Рё, СЃСѓРјРјСѓ СЃРґРµР»РєРё.
+5. По каждому сотруднику выведите последнего клиента, которому сотрудник что-то продал.
+   В результатах должны быть ид и фамилия сотрудника, ид и название клиента, дата продажи, сумму сделки.
 */
 ;WITH CTE1 (SalespersonPersonID, FullName, CustomerID, CustomerName, TransactionDate, TransactionAmount,LastSale) AS
 (
@@ -97,10 +122,9 @@ Select SalespersonPersonID, FullName, CustomerID, CustomerName, TransactionDate,
 From CTE1
 Order by SalespersonPersonID
 /*
-6. Р’С‹Р±РµСЂРёС‚Рµ РїРѕ РєР°Р¶РґРѕРјСѓ РєР»РёРµРЅС‚Сѓ РґРІР° СЃР°РјС‹С… РґРѕСЂРѕРіРёС… С‚РѕРІР°СЂР°, РєРѕС‚РѕСЂС‹Рµ РѕРЅ РїРѕРєСѓРїР°Р».
-Р’ СЂРµР·СѓР»СЊС‚Р°С‚Р°С… РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РёРґ РєР»РёРµС‚Р°, РµРіРѕ РЅР°Р·РІР°РЅРёРµ, РёРґ С‚РѕРІР°СЂР°, С†РµРЅР°, РґР°С‚Р° РїРѕРєСѓРїРєРё.
+6. Выберите по каждому клиенту два самых дорогих товара, которые он покупал.
+В результатах должно быть ид клиета, его название, ид товара, цена, дата покупки.
 */
---РќРµ РїРѕРЅРёРјР°СЋ РєР°Рє РґРѕР±Р°РІРёС‚СЊ РґР°С‚Сѓ РїРѕРєСѓРїРєРё!!!!!!!!!!!!
 ;WITH CTE1 (CustomerID,CustomerName,StockItemID, Description,UnitPrice) AS
 (
 Select  Distinct cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice
@@ -114,9 +138,17 @@ From Sales.Invoices as Invoices
 	SELECT CTE1.CustomerID,CTE1.CustomerName,CTE1.StockItemID,CTE1.Description ,CTE1.UnitPrice,
 		ROW_NUMBER() OVER (PARTITION BY CTE1.CustomerID ORDER BY CTE1.UnitPrice DESC) AS Rn
 	FROM CTE1
-	) 
-SELECT CTE2.CustomerID,CTE2.CustomerName,CTE2.StockItemID, CTE2.Description,CTE2.UnitPrice--,CTE2.Rn
+	)
+,CTE3 (CustomerID,CustomerName,StockItemID,Description,UnitPrice) AS (
+SELECT CTE2.CustomerID,CTE2.CustomerName,CTE2.StockItemID, CTE2.Description,CTE2.UnitPrice
 From CTE2 
 WHERE CTE2.Rn <= 2
-
-
+)
+Select  cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice, Invoices.InvoiceDate
+From Sales.Invoices as Invoices
+	JOIN Sales.InvoiceLines as InvLines ON Invoices.InvoiceID = InvLines.InvoiceID
+	JOIN Sales.CustomerTransactions as trans ON Invoices.InvoiceID = trans.InvoiceID AND Invoices.CustomerID = trans.CustomerID
+	JOIN Sales.Customers as cust ON trans.CustomerID = cust.CustomerID
+	JOIN CTE3 ON cust.CustomerID = CTE3.CustomerID and InvLines.StockItemID = CTE3.StockItemID and 
+	InvLines.Description = CTE3.Description and  InvLines.UnitPrice = CTE3.UnitPrice
+Order by cust.CustomerID
