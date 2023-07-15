@@ -33,7 +33,7 @@ FROM
  MAX(ord)
  FOR name IN ([Peeples Valley, AZ],[Medicine Lodge, KS],[Gasport, NY],[Sylvanite, MT], [Jessie, ND])
 )as PVT
-Order by Month(InvoiceMonth),Year(InvoiceMonth)
+Order by Year(InvoiceMonth),  Month(InvoiceMonth)
 /*
 2. Для всех клиентов с именем, в котором есть "Tailspin Toys"
 вывести все адреса, которые есть в таблице, в одной колонке.
@@ -105,6 +105,10 @@ CROSS APPLY (SELECT TOP 2 O.CustomerName,O.StockItemID, O.Description,O.UnitPric
                 WHERE O.CustomerID = C.CustomerID	
 				Order by O.CustomerID, O.UnitPrice Desc) AS O
 )
+--SELECT CTE2.CustomerID,CTE2.CustomerName,CTE2.StockItemID, CTE2.Description,CTE2.UnitPrice,CTE2.Rn
+--From CTE2 
+--WHERE CTE2.Rn <= 2
+--Order by 1
 Select  cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice, Invoices.InvoiceDate
 From Sales.Invoices as Invoices
 	JOIN Sales.InvoiceLines as InvLines ON Invoices.InvoiceID = InvLines.InvoiceID
@@ -113,6 +117,26 @@ From Sales.Invoices as Invoices
 	JOIN CTE3 ON cust.CustomerID = CTE3.CustomerID and InvLines.StockItemID = CTE3.StockItemID and 
 	InvLines.Description = CTE3.Description and  InvLines.UnitPrice = CTE3.UnitPrice
 Order by cust.CustomerID
+
+
+;WITH CTE1 (CustomerID,CustomerName,StockItemID, Description,UnitPrice) AS
+(
+Select  Distinct cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice
+From Sales.Invoices as Invoices
+	JOIN Sales.InvoiceLines as InvLines ON Invoices.InvoiceID = InvLines.InvoiceID
+	JOIN Sales.CustomerTransactions as trans ON Invoices.InvoiceID = trans.InvoiceID AND Invoices.CustomerID = trans.CustomerID
+	JOIN Sales.Customers as cust ON trans.CustomerID = cust.CustomerID
+)
+,CTE2 (CustomerID,CustomerName,StockItemID, Description,UnitPrice,Rn) AS
+	(
+	SELECT CTE1.CustomerID,CTE1.CustomerName,CTE1.StockItemID,CTE1.Description ,CTE1.UnitPrice,
+		ROW_NUMBER() OVER (PARTITION BY CTE1.CustomerID ORDER BY CTE1.UnitPrice DESC) AS Rn
+	FROM CTE1
+	) 
+SELECT CTE2.CustomerID,CTE2.CustomerName,CTE2.StockItemID, CTE2.Description,CTE2.UnitPrice,CTE2.Rn
+From CTE2 
+WHERE CTE2.Rn <= 2
+Order by 1
 
 
 

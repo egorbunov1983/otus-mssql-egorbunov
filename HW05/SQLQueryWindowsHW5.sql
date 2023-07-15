@@ -125,6 +125,28 @@ Order by SalespersonPersonID
 6. Выберите по каждому клиенту два самых дорогих товара, которые он покупал.
 В результатах должно быть ид клиета, его название, ид товара, цена, дата покупки.
 */
+--Этот запрос выдает по 2 товара для каждого клиента. Как добавить к нему дату?
+;WITH CTE1 (CustomerID,CustomerName,StockItemID, Description,UnitPrice) AS
+(
+Select  Distinct cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice
+From Sales.Invoices as Invoices
+	JOIN Sales.InvoiceLines as InvLines ON Invoices.InvoiceID = InvLines.InvoiceID
+	JOIN Sales.CustomerTransactions as trans ON Invoices.InvoiceID = trans.InvoiceID AND Invoices.CustomerID = trans.CustomerID
+	JOIN Sales.Customers as cust ON trans.CustomerID = cust.CustomerID
+)
+,CTE2 (CustomerID,CustomerName,StockItemID, Description,UnitPrice,Rn) AS
+	(
+	SELECT CTE1.CustomerID,CTE1.CustomerName,CTE1.StockItemID,CTE1.Description ,CTE1.UnitPrice,
+		ROW_NUMBER() OVER (PARTITION BY CTE1.CustomerID ORDER BY CTE1.UnitPrice DESC) AS Rn
+	FROM CTE1
+	) 
+SELECT CTE2.CustomerID,CTE2.CustomerName,CTE2.StockItemID, CTE2.Description,CTE2.UnitPrice,CTE2.Rn
+From CTE2 
+WHERE CTE2.Rn <= 2
+Order by CustomerID
+
+-----Если добавляю дату, то записей становится больше чем 2 с разными датами!!!!!!
+-----Как правильно добавить дату?
 ;WITH CTE1 (CustomerID,CustomerName,StockItemID, Description,UnitPrice) AS
 (
 Select  Distinct cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice
