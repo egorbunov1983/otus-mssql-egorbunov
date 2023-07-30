@@ -93,10 +93,10 @@ Order by  Month, SumQ desc
 Select StockItemID, StockItemName, Brand, UnitPrice,
 ROW_NUMBER() OVER (Partition by Left(StockItemName,1) ORDER BY StockItemName ) AS Rn,
 Count(*) OVER () as Total,
-Count(*) OVER (Order by Left(StockItemName,1)) as TotalLetter,
+Count(*) OVER (Partition by Left(StockItemName,1)) as TotalLetter,
 LEAD(StockItemID) OVER (ORDER BY StockItemName) AS lead_id,
 LAG(StockItemID) OVER (ORDER BY StockItemName) AS lag_id,
-IIF(LAG(StockItemName,2) OVER (ORDER BY StockItemName) is NULL, 'No items', LAG(StockItemName,2) OVER (ORDER BY StockItemName)) as  lag_str,
+LAG(StockItemName,2,'No items') OVER (ORDER BY StockItemName) as  lag_str,
 NTILE(30) OVER ( ORDER BY TypicalWeightPerUnit) AS GroupNumber
 FROM Warehouse.StockItems as T1
 Order by StockItemName asc
@@ -125,52 +125,23 @@ Order by SalespersonPersonID
 6. Выберите по каждому клиенту два самых дорогих товара, которые он покупал.
 В результатах должно быть ид клиета, его название, ид товара, цена, дата покупки.
 */
---Этот запрос выдает по 2 товара для каждого клиента. Как добавить к нему дату?
-;WITH CTE1 (CustomerID,CustomerName,StockItemID, Description,UnitPrice) AS
+--Не совсем понял какие записи нужно выводить если разный товар встречается по одной цене и с разными датами? Вывел МАХ.
+;WITH CTE1 (CustomerID,CustomerName,StockItemID, Description,UnitPrice,InvoiceDate,DenseRnk) AS
 (
-Select  Distinct cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice
+Select  cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice, Invoices.InvoiceDate,
+DENSE_RANK() OVER (PARTITION BY cust.CustomerName ORDER BY InvLines.UnitPrice desc) AS DenseRnk
 From Sales.Invoices as Invoices
 	JOIN Sales.InvoiceLines as InvLines ON Invoices.InvoiceID = InvLines.InvoiceID
 	JOIN Sales.CustomerTransactions as trans ON Invoices.InvoiceID = trans.InvoiceID AND Invoices.CustomerID = trans.CustomerID
 	JOIN Sales.Customers as cust ON trans.CustomerID = cust.CustomerID
 )
-,CTE2 (CustomerID,CustomerName,StockItemID, Description,UnitPrice,Rn) AS
+,CTE2 (CustomerID,CustomerName,StockItemID, Description,UnitPrice,InvoiceDate,DenseRnk) AS
 	(
-	SELECT CTE1.CustomerID,CTE1.CustomerName,CTE1.StockItemID,CTE1.Description ,CTE1.UnitPrice,
-		ROW_NUMBER() OVER (PARTITION BY CTE1.CustomerID ORDER BY CTE1.UnitPrice DESC) AS Rn
+	SELECT CTE1.CustomerID,CTE1.CustomerName,CTE1.StockItemID,CTE1.Description ,CTE1.UnitPrice,CTE1.InvoiceDate, CTE1.DenseRnk
 	FROM CTE1
+	where CTE1.DenseRnk IN (1,2)
 	) 
-SELECT CTE2.CustomerID,CTE2.CustomerName,CTE2.StockItemID, CTE2.Description,CTE2.UnitPrice,CTE2.Rn
+SELECT CTE2.CustomerID,CTE2.CustomerName,MAX(CTE2.StockItemID) as StockItemID,MAX(CTE2.Description) as Description,CTE2.UnitPrice,MAX(CTE2.InvoiceDate) as InvoiceDate
 From CTE2 
-WHERE CTE2.Rn <= 2
-Order by CustomerID
-
------Если добавляю дату, то записей становится больше чем 2 с разными датами!!!!!!
------Как правильно добавить дату?
-;WITH CTE1 (CustomerID,CustomerName,StockItemID, Description,UnitPrice) AS
-(
-Select  Distinct cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice
-From Sales.Invoices as Invoices
-	JOIN Sales.InvoiceLines as InvLines ON Invoices.InvoiceID = InvLines.InvoiceID
-	JOIN Sales.CustomerTransactions as trans ON Invoices.InvoiceID = trans.InvoiceID AND Invoices.CustomerID = trans.CustomerID
-	JOIN Sales.Customers as cust ON trans.CustomerID = cust.CustomerID
-)
-,CTE2 (CustomerID,CustomerName,StockItemID, Description,UnitPrice,Rn) AS
-	(
-	SELECT CTE1.CustomerID,CTE1.CustomerName,CTE1.StockItemID,CTE1.Description ,CTE1.UnitPrice,
-		ROW_NUMBER() OVER (PARTITION BY CTE1.CustomerID ORDER BY CTE1.UnitPrice DESC) AS Rn
-	FROM CTE1
-	)
-,CTE3 (CustomerID,CustomerName,StockItemID,Description,UnitPrice) AS (
-SELECT CTE2.CustomerID,CTE2.CustomerName,CTE2.StockItemID, CTE2.Description,CTE2.UnitPrice
-From CTE2 
-WHERE CTE2.Rn <= 2
-)
-Select  cust.CustomerID,cust.CustomerName,InvLines.StockItemID, InvLines.Description,InvLines.UnitPrice, Invoices.InvoiceDate
-From Sales.Invoices as Invoices
-	JOIN Sales.InvoiceLines as InvLines ON Invoices.InvoiceID = InvLines.InvoiceID
-	JOIN Sales.CustomerTransactions as trans ON Invoices.InvoiceID = trans.InvoiceID AND Invoices.CustomerID = trans.CustomerID
-	JOIN Sales.Customers as cust ON trans.CustomerID = cust.CustomerID
-	JOIN CTE3 ON cust.CustomerID = CTE3.CustomerID and InvLines.StockItemID = CTE3.StockItemID and 
-	InvLines.Description = CTE3.Description and  InvLines.UnitPrice = CTE3.UnitPrice
-Order by cust.CustomerID
+Group by CTE2.CustomerID,CTE2.CustomerName,CTE2.UnitPrice, CTE2.DenseRnk
+Order by CustomerID,UnitPrice desc
