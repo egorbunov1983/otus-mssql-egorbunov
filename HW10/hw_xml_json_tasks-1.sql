@@ -51,22 +51,6 @@ AS data;
 SELECT @xmlDocument AS [@xmlDocument];
 DECLARE @docHandle INT;
 EXEC sp_xml_preparedocument @docHandle OUTPUT, @xmlDocument;
--- docHandle - это просто число
---SELECT @docHandle AS docHandle;
-/*SELECT *
-FROM OPENXML(@docHandle, N'/StockItems/Item')
-WITH ( 
-	[StockItemName] NVARCHAR(100)  '@Name',
-	[SupplierID] INT 'SupplierID',
-	[UnitPackageID] INT 'Package/UnitPackageID',
-	[OuterPackageID] INT 'Package/OuterPackageID',
-	[QuantityPerOuter] INT 'Package/QuantityPerOuter',
-	[TypicalWeightPerUnit] NUMERIC(18,3) 'Package/TypicalWeightPerUnit',
-	[LeadTimeDays] INT 'LeadTimeDays',
-	[TaxRate] NUMERIC(18,3) 'TaxRate',
-	[UnitPrice] NUMERIC(18,2) 'UnitPrice'
-	);
-*/
 	--Создадим таблицу
 	DROP TABLE IF EXISTS #StockItems;
 	CREATE TABLE #StockItems(
@@ -98,7 +82,6 @@ WITH (
 	[TaxRate] NUMERIC(18,3) 'TaxRate',
 	[UnitPrice] NUMERIC(18,2) 'UnitPrice'
 	);
-
 	-- Надо удалить handle
 EXEC sp_xml_removedocument @docHandle;
 
@@ -117,11 +100,10 @@ From Warehouse.StockItems
 JOIN #StockItems as S ON Warehouse.StockItems.StockItemName = S.StockItemName COLLATE DATABASE_DEFAULT;
 
 Select *
-From #StockItems as S
-WHERE NOT EXISTS (Select * From Warehouse.StockItems 
-WHERE S.StockItemName = Warehouse.StockItems.StockItemName COLLATE DATABASE_DEFAULT);
+From Warehouse.StockItems 
 
 /*
+-- При выполнении Insert into ошибка: "Конфликт инструкции INSERT с ограничением FOREIGN KEY "FK_Warehouse_StockItems_Application_People""
 Insert into Warehouse.StockItems([StockItemName],[SupplierID],[UnitPackageID],[OuterPackageID],[QuantityPerOuter],[IsChillerStock],[TypicalWeightPerUnit],[LeadTimeDays],[TaxRate],[UnitPrice],[LastEditedBy]) 
 Select * From #StockItems as S
 WHERE NOT EXISTS (Select * From Warehouse.StockItems 
@@ -130,7 +112,6 @@ WHERE S.StockItemName = Warehouse.StockItems.StockItemName COLLATE DATABASE_DEFA
 
 DROP TABLE IF EXISTS #StockItems;
 GO
-
 /*
 2. Выгрузить данные из таблицы StockItems в такой же xml-файл, как StockItems.xml
 */
@@ -176,10 +157,9 @@ SELECT
 Для поиска использовать равенство, использовать LIKE запрещено.
 */
 SELECT
-    StockItemID,StockItemName
+    StockItemID
+	,StockItemName
    , JSON_QUERY(CustomFields, '$.Tags') AS tags
- --  ,tags.value
-
 FROM Warehouse.StockItems
 CROSS APPLY OPENJSON(CustomFields, '$.Tags') tags
 WHERE tags.value = 'Vintage'
