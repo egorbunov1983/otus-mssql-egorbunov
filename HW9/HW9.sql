@@ -168,7 +168,7 @@ RECONFIGURE;
 GO 
 SELECT @@SERVERNAME
 
-exec master..xp_cmdshell 'bcp "[WideWorldImporters].Sales.InvoiceLines" out  "D:\SQL\HW10\InvoiceLines.txt" -T -w -t"@eu&$1&" -S VIC-DESKTOP-UTPO3SR\SQL2023'	
+exec master..xp_cmdshell 'bcp "[WideWorldImporters].Sales.InvoiceLines" out  "D:\SQL\HW10\InvoiceLines1.txt" -T -w -t"@eu&$1&" -S VIC-DESKTOP-UTPO3SR\SQL2023'	
 
 drop table if exists [Sales].[InvoiceLines_BulkDemo]
 
