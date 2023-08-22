@@ -29,6 +29,28 @@ Order by Purchase desc
 );
 GO
 Select * From HW.GetMaxPrice (1);
+IF OBJECT_ID ('HW.GetMaxPrice2','IF') is not null
+DROP FUNCTION HW.GetMaxPrice2
+GO
+-------------v2------------------------------
+Create Function HW.GetMaxPrice2()
+Returns Int
+AS 
+Begin 
+Declare @ID Int
+Select TOP 1 @ID =  SC.CustomerID
+					From Sales.Customers as SC
+					Join Sales.Invoices as SI ON SC.CustomerID = SI.CustomerID
+					Join Sales.InvoiceLines as SIL ON SI.InvoiceID = SIL.InvoiceID
+					Group by SC.CustomerID,SIL.InvoiceID
+					Order by Sum(Quantity*UnitPrice) desc
+						
+Return @ID
+end
+GO
+
+Select * From Sales.Customers as SC
+Where SC.CustomerID = HW.GetMaxPrice2();
 /*
 2) Написать хранимую процедуру с входящим параметром СustomerID, выводящую сумму покупки по этому клиенту.
 Использовать таблицы :
@@ -46,7 +68,11 @@ Create Procedure HW.Get_Customer
 AS
 IF NOT EXISTS (Select  * From Sales.Customers as SC Where SC.CustomerID = @CustomerID)   
    BEGIN  
-       PRINT 'ERROR: This ID does not exist!'  
+       --PRINT 'ERROR: This ID does not exist!' 
+	   --RAISERROR ( 'ERROR: This ID does not exist',1,1) 
+	   RAISERROR (15600,-1,10, 'HW.Get_Customer')--  15600 Код ошибки; 
+												-- - 1 severity Уровень серьезности читать документацию; 
+												-- 10- статус (Целое число от 0 до 255)
        RETURN
    END  
 ELSE  
@@ -60,9 +86,9 @@ ELSE
    END 
 
 Declare @ID int
-Set @ID = 3
+--Set @ID = 3
 EXEC HW.Get_Customer @ID ;
-
+--RAISERROR ( 'Patient detail added successfully',1,1) 
 /*
 3) Создать одинаковую функцию и хранимую процедуру, посмотреть в чем разница в производительности и почему.
 */
